@@ -28,6 +28,8 @@ okhttp_test_src_files += ["okio/okio/src/test/java/**/*.java"]
 okhttp_test_src_files += ["mockwebserver/src/main/java/**/*.java"]
 okhttp_test_src_files += ["mockwebserver/src/test/java/**/*.java"]
 okhttp_test_src_files += ["android/test/java/**/*.java"]
+okhttp_test_src_files += ["okhttp-ws/src/main/java/**/*.java"]
+okhttp_test_src_files += ["okhttp-ws-tests/src/test/java/**/*.java"]
 
 java_library {
     name: "okhttp",
