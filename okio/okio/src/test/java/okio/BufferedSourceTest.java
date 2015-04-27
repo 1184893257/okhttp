@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2014 Square, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package okio;
 
 import java.io.EOFException;
@@ -240,7 +255,7 @@ public class BufferedSourceTest {
     }
 
     // Verify we read all that we could from the source.
-    assertByteArraysEquals(new byte[]{'H', 'e', 'l', 'l', 'o', 0}, sink);
+    assertByteArraysEquals(new byte[] { 'H', 'e', 'l', 'l', 'o', 0 }, sink);
   }
 
   @Test public void readIntoByteArray() throws IOException {
@@ -471,5 +486,132 @@ public class BufferedSourceTest {
       fail();
     } catch (ArrayIndexOutOfBoundsException expected) {
     }
+  }
+
+  @Test public void longHexString() throws IOException {
+    assertLongHexString("8000000000000000", 0x8000000000000000L);
+    assertLongHexString("fffffffffffffffe", 0xFFFFFFFFFFFFFFFEL);
+    assertLongHexString("FFFFFFFFFFFFFFFe", 0xFFFFFFFFFFFFFFFEL);
+    assertLongHexString("ffffffffffffffff", 0xffffffffffffffffL);
+    assertLongHexString("FFFFFFFFFFFFFFFF", 0xFFFFFFFFFFFFFFFFL);
+    assertLongHexString("0000000000000000", 0x0);
+    assertLongHexString("0000000000000001", 0x1);
+    assertLongHexString("7999999999999999", 0x7999999999999999L);
+
+    assertLongHexString("FF", 0xFF);
+    assertLongHexString("0000000000000001", 0x1);
+  }
+
+  @Test public void hexStringWithManyLeadingZeros() throws IOException {
+    assertLongHexString("00000000000000001", 0x1);
+    assertLongHexString("0000000000000000ffffffffffffffff", 0xffffffffffffffffL);
+    assertLongHexString("00000000000000007fffffffffffffff", 0x7fffffffffffffffL);
+    assertLongHexString(TestUtil.repeat('0', Segment.SIZE + 1) + "1", 0x1);
+  }
+
+  private void assertLongHexString(String s, long expected) throws IOException {
+    data.writeUtf8(s);
+    long actual = source.readHexadecimalUnsignedLong();
+    assertEquals(s + " --> " + expected, expected, actual);
+  }
+
+  @Test public void longHexStringAcrossSegment() throws IOException {
+    data.writeUtf8(repeat('a', Segment.SIZE - 8)).writeUtf8("FFFFFFFFFFFFFFFF");
+    source.skip(Segment.SIZE - 8);
+    assertEquals(-1, source.readHexadecimalUnsignedLong());
+  }
+
+  @Test public void longHexStringTooLongThrows() throws IOException {
+    try {
+      data.writeUtf8("fffffffffffffffff");
+      source.readHexadecimalUnsignedLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Number too large: fffffffffffffffff", e.getMessage());
+    }
+  }
+
+  @Test public void longHexStringTooShortThrows() throws IOException {
+    try {
+      data.writeUtf8(" ");
+      source.readHexadecimalUnsignedLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Expected leading [0-9a-fA-F] character but was 0x20", e.getMessage());
+    }
+  }
+
+  @Test public void longDecimalString() throws IOException {
+    assertLongDecimalString("-9223372036854775808", -9223372036854775808L);
+    assertLongDecimalString("-1", -1L);
+    assertLongDecimalString("0", 0L);
+    assertLongDecimalString("1", 1L);
+    assertLongDecimalString("9223372036854775807", 9223372036854775807L);
+
+    assertLongDecimalString("00000001", 1L);
+    assertLongDecimalString("-000001", -1L);
+  }
+
+  private void assertLongDecimalString(String s, long expected) throws IOException {
+    data.writeUtf8(s);
+    data.writeUtf8("zzz");
+    long actual = source.readDecimalLong();
+    assertEquals(s + " --> " + expected, expected, actual);
+    assertEquals("zzz", source.readUtf8());
+  }
+
+  @Test public void longDecimalStringAcrossSegment() throws IOException {
+    data.writeUtf8(repeat('a', Segment.SIZE - 8)).writeUtf8("1234567890123456");
+    data.writeUtf8("zzz");
+    source.skip(Segment.SIZE - 8);
+    assertEquals(1234567890123456L, source.readDecimalLong());
+    assertEquals("zzz", source.readUtf8());
+  }
+
+  @Test public void longDecimalStringTooLongThrows() throws IOException {
+    try {
+      data.writeUtf8("12345678901234567890"); // Too many digits.
+      source.readDecimalLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Number too large: 12345678901234567890", e.getMessage());
+    }
+  }
+
+  @Test public void longDecimalStringTooHighThrows() throws IOException {
+    try {
+      data.writeUtf8("9223372036854775808"); // Right size but cannot fit.
+      source.readDecimalLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Number too large: 9223372036854775808", e.getMessage());
+    }
+  }
+
+  @Test public void longDecimalStringTooLowThrows() throws IOException {
+    try {
+      data.writeUtf8("-9223372036854775809"); // Right size but cannot fit.
+      source.readDecimalLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Number too large: -9223372036854775809", e.getMessage());
+    }
+  }
+
+  @Test public void longDecimalStringTooShortThrows() throws IOException {
+    try {
+      data.writeUtf8(" ");
+      source.readDecimalLong();
+      fail();
+    } catch (NumberFormatException e) {
+      assertEquals("Expected leading [0-9] or '-' character but was 0x20", e.getMessage());
+    }
+  }
+
+  @Test public void decimalStringWithManyLeadingZeros() throws IOException {
+    assertLongDecimalString("00000000000000001", 1);
+    assertLongDecimalString("00000000000000009223372036854775807", 9223372036854775807L);
+    assertLongDecimalString("-00000000000000009223372036854775808", -9223372036854775808L);
+    assertLongDecimalString(TestUtil.repeat('0', Segment.SIZE + 1) + "1", 1);
   }
 }

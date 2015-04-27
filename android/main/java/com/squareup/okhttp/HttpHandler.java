@@ -17,6 +17,7 @@
 
 package com.squareup.okhttp;
 
+import libcore.net.NetworkSecurityPolicy;
 import java.io.IOException;
 import java.net.Proxy;
 import java.net.ResponseCache;
@@ -68,7 +69,15 @@ public class HttpHandler extends URLStreamHandler {
 
         // Do not permit http -> https and https -> http redirects.
         client.setFollowSslRedirects(false);
-        client.setConnectionSpecs(CLEARTEXT_ONLY);
+
+        if (NetworkSecurityPolicy.isCleartextTrafficPermitted()) {
+          // Permit cleartext traffic only (this is a handler for HTTP, not for HTTPS).
+          client.setConnectionSpecs(CLEARTEXT_ONLY);
+        } else {
+          // Cleartext HTTP denied by policy. Make okhttp deny cleartext HTTP attempts using the
+          // only mechanism it currently provides -- pretend there are no suitable routes.
+          client.setConnectionSpecs(Collections.<ConnectionSpec>emptyList());
+        }
 
         // When we do not set the Proxy explicitly OkHttp picks up a ProxySelector using
         // ProxySelector.getDefault().

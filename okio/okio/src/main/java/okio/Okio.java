@@ -79,7 +79,7 @@ public final class Okio {
 
           if (head.pos == head.limit) {
             source.head = head.pop();
-            SegmentPool.INSTANCE.recycle(head);
+            SegmentPool.recycle(head);
           }
         }
       }
@@ -126,6 +126,7 @@ public final class Okio {
     return new Source() {
       @Override public long read(Buffer sink, long byteCount) throws IOException {
         if (byteCount < 0) throw new IllegalArgumentException("byteCount < 0: " + byteCount);
+        if (byteCount == 0) return 0;
         timeout.throwIfReached();
         Segment tail = sink.writableSegment(1);
         int maxToCopy = (int) Math.min(byteCount, Segment.SIZE - tail.limit);

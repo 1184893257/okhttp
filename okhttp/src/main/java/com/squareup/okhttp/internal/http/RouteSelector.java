@@ -30,7 +30,7 @@ import java.net.Proxy;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.URI;
-import java.net.UnknownHostException;
+import java.net.UnknownServiceException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -195,7 +195,7 @@ public final class RouteSelector {
   }
 
   /** Prepares the socket addresses to attempt for the current proxy or host. */
-  private void resetNextInetSocketAddress(Proxy proxy) throws UnknownHostException {
+  private void resetNextInetSocketAddress(Proxy proxy) throws IOException {
     // Clear the addresses. Necessary if getAllByName() below throws!
     inetSocketAddresses = new ArrayList<>();
 
@@ -213,6 +213,11 @@ public final class RouteSelector {
       InetSocketAddress proxySocketAddress = (InetSocketAddress) proxyAddress;
       socketHost = getHostString(proxySocketAddress);
       socketPort = proxySocketAddress.getPort();
+    }
+
+    if (socketPort < 1 || socketPort > 65535) {
+      throw new SocketException("No route to " + socketHost + ":" + socketPort
+          + "; port is out of range");
     }
 
     // Try each address for best behavior in mixed IPv4/IPv6 environments.
@@ -276,8 +281,14 @@ public final class RouteSelector {
 
   /** Returns the next connection spec to try. */
   private ConnectionSpec nextConnectionSpec() throws IOException {
+    if (connectionSpecs.isEmpty()) {
+      throw new UnknownServiceException("No route to "
+          + ((uri.getScheme() != null) ? (uri.getScheme() + "://") : "//") + address.getUriHost()
+          + "; no connection specs");
+    }
     if (!hasNextConnectionSpec()) {
-      throw new SocketException("No route to " + address.getUriHost()
+      throw new SocketException("No route to "
+          + ((uri.getScheme() != null) ? (uri.getScheme() + "://") : "//") + address.getUriHost()
           + "; exhausted connection specs: " + connectionSpecs);
     }
     return connectionSpecs.get(nextSpecIndex++);

@@ -27,6 +27,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
+import static okio.Util.arrayRangeEquals;
 import static okio.Util.checkOffsetAndCount;
 
 /**
@@ -40,8 +41,8 @@ import static okio.Util.checkOffsetAndCount;
  * and other environments that run both trusted and untrusted code in the same
  * process.
  */
-public final class ByteString implements Serializable {
-  private static final char[] HEX_DIGITS =
+public class ByteString implements Serializable {
+  static final char[] HEX_DIGITS =
       { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
   private static final long serialVersionUID = 1L;
 
@@ -49,8 +50,8 @@ public final class ByteString implements Serializable {
   public static final ByteString EMPTY = ByteString.of();
 
   final byte[] data;
-  private transient int hashCode; // Lazily computed; 0 if unknown.
-  private transient String utf8; // Lazily computed.
+  transient int hashCode; // Lazily computed; 0 if unknown.
+  transient String utf8; // Lazily computed.
 
   ByteString(byte[] data) {
     this.data = data; // Trusted internal constructor doesn't clone data.
@@ -99,6 +100,32 @@ public final class ByteString implements Serializable {
    */
   public String base64() {
     return Base64.encode(data);
+  }
+
+  /** Returns the MD5 hash of this byte string. */
+  public ByteString md5() {
+    return digest("MD5");
+  }
+
+  /** Returns the SHA-256 hash of this byte string. */
+  public ByteString sha256() {
+    return digest("SHA-256");
+  }
+
+  private ByteString digest(String digest) {
+    try {
+      return ByteString.of(MessageDigest.getInstance(digest).digest(data));
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  /**
+   * Returns this byte string encoded as <a href="http://www.ietf.org/rfc/rfc4648.txt">URL-safe
+   * Base64</a>.
+   */
+  public String base64Url() {
+    return Base64.encodeUrl(data);
   }
 
   /**
@@ -212,7 +239,7 @@ public final class ByteString implements Serializable {
   }
 
   /**
-   * Returns a byte string that is a substring of this byte string, beginning at the specified 
+   * Returns a byte string that is a substring of this byte string, beginning at the specified
    * index until the end of this string. Returns this byte string if {@code beginIndex} is 0.
    */
   public ByteString substring(int beginIndex) {
@@ -220,8 +247,8 @@ public final class ByteString implements Serializable {
   }
 
   /**
-   * Returns a byte string that is a substring of this byte string, beginning at the specified 
-   * {@code beginIndex} and ends at the specified {@code endIndex}. Returns this byte string if 
+   * Returns a byte string that is a substring of this byte string, beginning at the specified
+   * {@code beginIndex} and ends at the specified {@code endIndex}. Returns this byte string if
    * {@code beginIndex} is 0 and {@code endIndex} is the length of this byte string.
    */
   public ByteString substring(int beginIndex, int endIndex) {
@@ -229,10 +256,10 @@ public final class ByteString implements Serializable {
     if (endIndex > data.length) {
       throw new IllegalArgumentException("endIndex > length(" + data.length + ")");
     }
-    
+
     int subLen = endIndex - beginIndex;
     if (subLen < 0) throw new IllegalArgumentException("endIndex < beginIndex");
-    
+
     if ((beginIndex == 0) && (endIndex == data.length)) {
       return this;
     }
@@ -267,8 +294,36 @@ public final class ByteString implements Serializable {
     out.write(data);
   }
 
+  /** Writes the contents of this byte string to {@code buffer}. */
+  void write(Buffer buffer) {
+    buffer.write(data, 0, data.length);
+  }
+
+  /**
+   * Returns true if the bytes of this in {@code [offset..offset+byteCount)} equal the bytes of
+   * {@code other} in {@code [otherOffset..otherOffset+byteCount)}. Returns false if either range is
+   * out of bounds.
+   */
+  public boolean rangeEquals(int offset, ByteString other, int otherOffset, int byteCount) {
+    return other.rangeEquals(otherOffset, this.data, offset, byteCount);
+  }
+
+  /**
+   * Returns true if the bytes of this in {@code [offset..offset+byteCount)} equal the bytes of
+   * {@code other} in {@code [otherOffset..otherOffset+byteCount)}. Returns false if either range is
+   * out of bounds.
+   */
+  public boolean rangeEquals(int offset, byte[] other, int otherOffset, int byteCount) {
+    return offset <= data.length - byteCount
+        && otherOffset <= other.length - byteCount
+        && arrayRangeEquals(data, offset, other, otherOffset, byteCount);
+  }
+
   @Override public boolean equals(Object o) {
-    return o == this || o instanceof ByteString && Arrays.equals(((ByteString) o).data, data);
+    if (o == this) return true;
+    return o instanceof ByteString
+        && ((ByteString) o).size() == data.length
+        && ((ByteString) o).rangeEquals(0, data, 0, data.length);
   }
 
   @Override public int hashCode() {
@@ -285,12 +340,7 @@ public final class ByteString implements Serializable {
       return String.format("ByteString[size=%s data=%s]", data.length, hex());
     }
 
-    try {
-      return String.format("ByteString[size=%s md5=%s]", data.length,
-          ByteString.of(MessageDigest.getInstance("MD5").digest(data)).hex());
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError();
-    }
+    return String.format("ByteString[size=%s md5=%s]", data.length, md5().hex());
   }
 
   private void readObject(ObjectInputStream in) throws IOException {

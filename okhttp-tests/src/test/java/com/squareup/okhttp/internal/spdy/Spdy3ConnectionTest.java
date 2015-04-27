@@ -21,8 +21,10 @@ import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import okio.AsyncTimeout;
 import okio.Buffer;
 import okio.BufferedSink;
 import okio.ByteString;
@@ -884,6 +886,7 @@ public final class Spdy3ConnectionTest {
     } catch (InterruptedIOException expected) {
     }
     long elapsedNanos = System.nanoTime() - startNanos;
+    awaitWatchdogIdle();
     assertEquals(500d, TimeUnit.NANOSECONDS.toMillis(elapsedNanos), 200d /* 200ms delta */);
     assertEquals(0, connection.openStreamCount());
 
@@ -911,6 +914,7 @@ public final class Spdy3ConnectionTest {
     } catch (InterruptedIOException expected) {
     }
     long elapsedNanos = System.nanoTime() - startNanos;
+    awaitWatchdogIdle();
     assertEquals(500d, TimeUnit.NANOSECONDS.toMillis(elapsedNanos), 200d /* 200ms delta */);
     assertEquals(0, connection.openStreamCount());
 
@@ -941,12 +945,14 @@ public final class Spdy3ConnectionTest {
     sink.write(new Buffer().writeUtf8("abcde"), 5);
     stream.writeTimeout().timeout(500, TimeUnit.MILLISECONDS);
     long startNanos = System.nanoTime();
+    sink.write(new Buffer().writeUtf8("f"), 1);
     try {
-      sink.write(new Buffer().writeUtf8("f"), 1); // This will time out waiting on the write window.
+      sink.flush(); // This will time out waiting on the write window.
       fail();
     } catch (InterruptedIOException expected) {
     }
     long elapsedNanos = System.nanoTime() - startNanos;
+    awaitWatchdogIdle();
     assertEquals(500d, TimeUnit.NANOSECONDS.toMillis(elapsedNanos), 200d /* 200ms delta */);
     assertEquals(0, connection.openStreamCount());
 
@@ -955,6 +961,31 @@ public final class Spdy3ConnectionTest {
     assertEquals(TYPE_HEADERS, peer.takeFrame().type);
     assertEquals(TYPE_DATA, peer.takeFrame().type);
     assertEquals(TYPE_RST_STREAM, peer.takeFrame().type);
+  }
+
+  @Test public void outgoingWritesAreBatched() throws Exception {
+    // write the mocking script
+    peer.acceptFrame(); // SYN_STREAM
+    peer.sendFrame().synReply(false, 1, headerEntries("a", "android"));
+    peer.acceptFrame(); // DATA
+    peer.play();
+
+    // play it back
+    SpdyConnection connection = connection(peer, SPDY3);
+    SpdyStream stream = connection.newStream(headerEntries("b", "banana"), true, true);
+
+    // two outgoing writes
+    Sink sink = stream.getSink();
+    sink.write(new Buffer().writeUtf8("abcde"), 5);
+    sink.write(new Buffer().writeUtf8("fghij"), 5);
+    sink.close();
+
+    // verify the peer received one incoming frame
+    assertEquals(TYPE_HEADERS, peer.takeFrame().type);
+    MockSpdyPeer.InFrame data = peer.takeFrame();
+    assertEquals(TYPE_DATA, data.type);
+    assertTrue(Arrays.equals("abcdefghij".getBytes("UTF-8"), data.data));
+    assertTrue(data.inFinished);
   }
 
   @Test public void headers() throws Exception {
@@ -1273,6 +1304,23 @@ public final class Spdy3ConnectionTest {
         }
       }
     }.start();
+  }
+
+  /**
+   * Returns true when all work currently in progress by the watchdog have completed. This method
+   * creates more work for the watchdog and waits for that work to be executed. When it is, we know
+   * work that preceded this call is complete.
+   */
+  private void awaitWatchdogIdle() throws InterruptedException {
+    final CountDownLatch latch = new CountDownLatch(1);
+    AsyncTimeout watchdogJob = new AsyncTimeout() {
+      @Override protected void timedOut() {
+        latch.countDown();
+      }
+    };
+    watchdogJob.deadlineNanoTime(System.nanoTime()); // Due immediately!
+    watchdogJob.enter();
+    latch.await();
   }
 
   static int roundUp(int num, int divisor) {

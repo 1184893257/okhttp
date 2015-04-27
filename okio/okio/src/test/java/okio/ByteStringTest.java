@@ -18,14 +18,12 @@ package okio;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import org.junit.Test;
 
 import static okio.TestUtil.assertByteArraysEquals;
+import static okio.TestUtil.assertEquivalent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -74,6 +72,24 @@ public class ByteStringTest {
     assertEquals(byteString.utf8(), bronzeHorseman);
   }
 
+  @Test public void md5() {
+    assertEquals("6cd3556deb0da54bca060b4c39479839",
+        ByteString.encodeUtf8("Hello, world!").md5().hex());
+    assertEquals("c71dc6df4b2e434b8c74fd6dd6ca3f85",
+        ByteString.encodeUtf8("One Two Three").md5().hex());
+    assertEquals("37b69fb926e239e049d7e43987974b99",
+        ByteString.encodeUtf8(bronzeHorseman).md5().hex());
+  }
+
+  @Test public void sha256() {
+    assertEquals("315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3",
+        ByteString.encodeUtf8("Hello, world!").sha256().hex());
+    assertEquals("641e54ba5e49e169408148a25bef8ca8fa4f8aab222fe8ce4b3535a570ddd68e",
+        ByteString.encodeUtf8("One Two Three").sha256().hex());
+    assertEquals("4d869e1c3d94568a5344235d9e4f187b8d5d78d06c5c622854c669f2f582d33e",
+        ByteString.encodeUtf8(bronzeHorseman).sha256().hex());
+  }
+
   @Test public void testHashCode() throws Exception {
     ByteString byteString = ByteString.decodeHex("0102");
     assertEquals(byteString.hashCode(), byteString.hashCode());
@@ -117,16 +133,16 @@ public class ByteStringTest {
   @Test public void toAsciiStartsUppercaseEndsLowercase() throws Exception {
     assertEquals(ByteString.encodeUtf8("ABCD"), ByteString.encodeUtf8("ABcd").toAsciiUppercase());
   }
-  
+
   @Test public void substring() throws Exception {
     ByteString byteString = ByteString.encodeUtf8("Hello, World!");
-    
+
     assertEquals(byteString.substring(0), byteString);
     assertEquals(byteString.substring(0, 5), ByteString.encodeUtf8("Hello"));
     assertEquals(byteString.substring(7), ByteString.encodeUtf8("World!"));
     assertEquals(byteString.substring(6, 6), ByteString.encodeUtf8(""));
   }
-  
+
   @Test public void substringWithInvalidBounds() throws Exception {
     ByteString byteString = ByteString.encodeUtf8("Hello, World!");
 
@@ -160,8 +176,17 @@ public class ByteStringTest {
     assertEquals("AA==", ByteString.encodeUtf8("\u0000").base64());
     assertEquals("AAA=", ByteString.encodeUtf8("\u0000\u0000").base64());
     assertEquals("AAAA", ByteString.encodeUtf8("\u0000\u0000\u0000").base64());
-    assertEquals("V2UncmUgZ29ubmEgbWFrZSBhIGZvcnR1bmUgd2l0aCB0aGlzIHBsYWNlLg==",
-        ByteString.encodeUtf8("We're gonna make a fortune with this place.").base64());
+    assertEquals("SG93IG1hbnkgbGluZXMgb2YgY29kZSBhcmUgdGhlcmU/ICdib3V0IDIgbWlsbGlvbi4=",
+        ByteString.encodeUtf8("How many lines of code are there? 'bout 2 million.").base64());
+  }
+
+  @Test public void encodeBase64Url() {
+    assertEquals("", ByteString.encodeUtf8("").base64Url());
+    assertEquals("AA==", ByteString.encodeUtf8("\u0000").base64Url());
+    assertEquals("AAA=", ByteString.encodeUtf8("\u0000\u0000").base64Url());
+    assertEquals("AAAA", ByteString.encodeUtf8("\u0000\u0000\u0000").base64Url());
+    assertEquals("SG93IG1hbnkgbGluZXMgb2YgY29kZSBhcmUgdGhlcmU_ICdib3V0IDIgbWlsbGlvbi4=",
+        ByteString.encodeUtf8("How many lines of code are there? 'bout 2 million.").base64Url());
   }
 
   @Test public void ignoreUnnecessaryPadding() {
@@ -173,12 +198,18 @@ public class ByteStringTest {
     assertEquals("", ByteString.decodeBase64("").utf8());
     assertEquals(null, ByteString.decodeBase64("/===")); // Can't do anything with 6 bits!
     assertEquals(ByteString.decodeHex("ff"), ByteString.decodeBase64("//=="));
+    assertEquals(ByteString.decodeHex("ff"), ByteString.decodeBase64("__=="));
     assertEquals(ByteString.decodeHex("ffff"), ByteString.decodeBase64("///="));
+    assertEquals(ByteString.decodeHex("ffff"), ByteString.decodeBase64("___="));
     assertEquals(ByteString.decodeHex("ffffff"), ByteString.decodeBase64("////"));
+    assertEquals(ByteString.decodeHex("ffffff"), ByteString.decodeBase64("____"));
     assertEquals(ByteString.decodeHex("ffffffffffff"), ByteString.decodeBase64("////////"));
+    assertEquals(ByteString.decodeHex("ffffffffffff"), ByteString.decodeBase64("________"));
     assertEquals("What's to be scared about? It's just a little hiccup in the power...",
         ByteString.decodeBase64("V2hhdCdzIHRvIGJlIHNjYXJlZCBhYm91dD8gSXQncyBqdXN0IGEgbGl0dGxlIGhpY2"
             + "N1cCBpbiB0aGUgcG93ZXIuLi4=").utf8());
+    // Uses two encoding styles. Malformed, but supported as a side-effect.
+    assertEquals(ByteString.decodeHex("ffffff"), ByteString.decodeBase64("__//"));
   }
 
   @Test public void decodeBase64WithWhitespace() {
@@ -230,40 +261,12 @@ public class ByteStringTest {
   }
 
   @Test public void javaSerializationTestNonEmpty() throws Exception {
-    ByteString original = ByteString.encodeUtf8(bronzeHorseman);
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    ObjectOutputStream out = new ObjectOutputStream(bytes);
-    out.writeObject("before");
-    out.writeObject(original);
-    out.writeObject("after");
-    ObjectInputStream in = new ObjectInputStream(
-        new ByteArrayInputStream(bytes.toByteArray()));
-    assertEquals("before", in.readObject());
-    Object roundTrippedObject = in.readObject();
-    assertNotNull(roundTrippedObject);
-    assertTrue("Round tripped object wasn't a ByteString but a " +
-        roundTrippedObject.getClass(), roundTrippedObject instanceof ByteString);
-    assertEquals(original, roundTrippedObject);
-    assertEquals("hashCodes", original.hashCode(), roundTrippedObject.hashCode());
-    assertEquals("after", in.readObject());
+    ByteString byteString = ByteString.encodeUtf8(bronzeHorseman);
+    assertEquivalent(byteString, TestUtil.reserialize(byteString));
   }
 
   @Test public void javaSerializationTestEmpty() throws Exception {
-    ByteString original = ByteString.of();
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    ObjectOutputStream out = new ObjectOutputStream(bytes);
-    out.writeObject("before");
-    out.writeObject(original);
-    out.writeObject("after");
-    ObjectInputStream in = new ObjectInputStream(
-        new ByteArrayInputStream(bytes.toByteArray()));
-    assertEquals("before", in.readObject());
-    Object roundTrippedObject = in.readObject();
-    assertNotNull(roundTrippedObject);
-    assertTrue("Round tripped object wasn't a ByteString but a " +
-        roundTrippedObject.getClass(), roundTrippedObject instanceof ByteString);
-    assertEquals(original, roundTrippedObject);
-    assertEquals("hashCodes", original.hashCode(), roundTrippedObject.hashCode());
-    assertEquals("after", in.readObject());
+    ByteString byteString = ByteString.of();
+    assertEquivalent(byteString, TestUtil.reserialize(byteString));
   }
 }

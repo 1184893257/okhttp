@@ -16,7 +16,7 @@
 package com.squareup.okhttp.mockwebserver;
 
 import com.squareup.okhttp.Headers;
-import com.squareup.okhttp.internal.ws.WebSocketListener;
+import com.squareup.okhttp.ws.WebSocketListener;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -153,7 +153,7 @@ public final class MockResponse implements Cloneable {
     Buffer bytesOut = new Buffer();
     while (!body.exhausted()) {
       long chunkSize = Math.min(body.size(), maxChunkSize);
-      bytesOut.writeUtf8(Long.toHexString(chunkSize));
+      bytesOut.writeHexadecimalUnsignedLong(chunkSize);
       bytesOut.writeUtf8("\r\n");
       bytesOut.write(body, chunkSize);
       bytesOut.writeUtf8("\r\n");

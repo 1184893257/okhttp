@@ -30,8 +30,8 @@ import com.squareup.okhttp.internal.spdy.IncomingStreamHandler;
 import com.squareup.okhttp.internal.spdy.SpdyConnection;
 import com.squareup.okhttp.internal.spdy.SpdyStream;
 import com.squareup.okhttp.internal.ws.RealWebSocket;
-import com.squareup.okhttp.internal.ws.WebSocketListener;
 import com.squareup.okhttp.internal.ws.WebSocketProtocol;
+import com.squareup.okhttp.ws.WebSocketListener;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -56,7 +56,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -77,6 +79,7 @@ import okio.Timeout;
 
 import static com.squareup.okhttp.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
 import static com.squareup.okhttp.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * A scriptable web server. Callers supply canned responses and the server
@@ -362,6 +365,8 @@ public final class MockWebServer {
   }
 
   public void shutdown() throws IOException {
+    if (serverSocket == null) throw new IllegalStateException("shutdown() before start()");
+
     // Cause acceptConnections() to break out.
     serverSocket.close();
 
@@ -472,8 +477,8 @@ public final class MockWebServer {
       }
 
       /**
-       * Reads a request and writes its response. Returns true if a request was
-       * processed.
+       * Reads a request and writes its response. Returns true if further calls should be attempted
+       * on the socket.
        */
       private boolean processOneRequest(Socket socket, BufferedSource source, BufferedSink sink)
           throws IOException, InterruptedException {
@@ -503,20 +508,18 @@ public final class MockWebServer {
           writeHttpResponse(socket, sink, response);
         }
 
+        if (logger.isLoggable(Level.INFO)) {
+          logger.info(MockWebServer.this + " received request: " + request
+              + " and responded: " + response);
+        }
+
         if (response.getSocketPolicy() == SocketPolicy.DISCONNECT_AT_END) {
-          source.close();
-          sink.close();
-          // Workaround for bug on Android: closing the input/output streams should close an
-          // SSLSocket but does not. https://code.google.com/p/android/issues/detail?id=97564
           socket.close();
+          return false;
         } else if (response.getSocketPolicy() == SocketPolicy.SHUTDOWN_INPUT_AT_END) {
           socket.shutdownInput();
         } else if (response.getSocketPolicy() == SocketPolicy.SHUTDOWN_OUTPUT_AT_END) {
           socket.shutdownOutput();
-        }
-        if (logger.isLoggable(Level.INFO)) {
-          logger.info(
-              MockWebServer.this + " received request: " + request + " and responded: " + response);
         }
 
         sequenceNumber++;
@@ -636,9 +639,15 @@ public final class MockWebServer {
 
     final WebSocketListener listener = response.getWebSocketListener();
     final CountDownLatch connectionClose = new CountDownLatch(1);
+
+    ThreadPoolExecutor replyExecutor =
+        new ThreadPoolExecutor(1, 1, 1, SECONDS, new LinkedBlockingDeque<Runnable>(),
+            Util.threadFactory(String.format("MockWebServer %s WebSocket", request.getPath()),
+                true));
+    replyExecutor.allowCoreThreadTimeOut(true);
     final RealWebSocket webSocket =
-        new RealWebSocket(false, source, sink, new SecureRandom(), listener,
-            request.getPath()) {
+        new RealWebSocket(false /* is server */, source, sink, new SecureRandom(), replyExecutor,
+            listener, request.getPath()) {
           @Override protected void closeConnection() throws IOException {
             connectionClose.countDown();
           }

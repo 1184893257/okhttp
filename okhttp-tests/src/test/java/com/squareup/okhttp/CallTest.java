@@ -33,8 +33,8 @@ import java.io.InterruptedIOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.HttpURLConnection;
-import java.net.SocketException;
 import java.net.URL;
+import java.net.UnknownServiceException;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -152,6 +152,15 @@ public final class CallTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
+  }
+
+  @Test public void invalidPort() throws Exception {
+    Request request = new Request.Builder()
+        .url("http://localhost:65536/")
+        .build();
+    client.newCall(request).enqueue(callback);
+    callback.await(request.url())
+        .assertFailure("No route to localhost:65536; port is out of range");
   }
 
   @Test public void getReturns500() throws Exception {
@@ -387,6 +396,23 @@ public final class CallTest {
   @Test public void delete_HTTP_2() throws Exception {
     enableProtocol(Protocol.HTTP_2);
     delete();
+  }
+
+  @Test public void deleteWithRequestBody() throws Exception {
+    server.enqueue(new MockResponse().setBody("abc"));
+
+    Request request = new Request.Builder()
+        .url(server.getUrl("/"))
+        .method("DELETE", RequestBody.create(MediaType.parse("text/plain"), "def"))
+        .build();
+
+    executeSynchronously(request)
+        .assertCode(200)
+        .assertBody("abc");
+
+    RecordedRequest recordedRequest = server.takeRequest();
+    assertEquals("DELETE", recordedRequest.getMethod());
+    assertEquals("def", recordedRequest.getBody().readUtf8());
   }
 
   @Test public void put() throws Exception {
@@ -824,8 +850,8 @@ public final class CallTest {
     try {
       client.newCall(request).execute();
       fail();
-    } catch (SocketException expected) {
-      assertTrue(expected.getMessage().contains("exhausted connection specs"));
+    } catch (UnknownServiceException expected) {
+      assertTrue(expected.getMessage().contains("no connection specs"));
     }
   }
 

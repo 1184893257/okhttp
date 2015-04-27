@@ -1084,6 +1084,28 @@ public final class URLConnectionTest {
     }
   }
 
+  @Test public void malformedChunkSize() throws IOException {
+    server.enqueue(new MockResponse().setBody("5:x\r\nABCDE\r\n0\r\n\r\n")
+        .clearHeaders()
+        .addHeader("Transfer-encoding: chunked"));
+
+    URLConnection connection = client.open(server.getUrl("/"));
+    try {
+      readAscii(connection.getInputStream(), Integer.MAX_VALUE);
+      fail();
+    } catch (IOException e) {
+    }
+  }
+
+  @Test public void extensionAfterChunkSize() throws IOException {
+    server.enqueue(new MockResponse().setBody("5;x\r\nABCDE\r\n0\r\n\r\n")
+        .clearHeaders()
+        .addHeader("Transfer-encoding: chunked"));
+
+    HttpURLConnection connection = client.open(server.getUrl("/"));
+    assertContent("ABCDE", connection);
+  }
+
   @Test public void missingChunkBody() throws IOException {
     server.enqueue(new MockResponse().setBody("5")
         .clearHeaders()
@@ -2560,7 +2582,6 @@ public final class URLConnectionTest {
     reusedConnectionFailsWithPost(TransferKind.END_OF_STREAM, 1024);
   }
 
-  // This test is ignored because we don't (yet) reliably recover for large request bodies.
   @Test public void postFailsWithBufferedRequestForLargeRequest() throws Exception {
     reusedConnectionFailsWithPost(TransferKind.END_OF_STREAM, 16384);
   }
@@ -2596,14 +2617,24 @@ public final class URLConnectionTest {
     byte[] requestBody = new byte[requestSize];
     new Random(0).nextBytes(requestBody);
 
-    connection = client.open(server.getUrl("/b"));
-    connection.setRequestMethod("POST");
-    transferKind.setForRequest(connection, requestBody.length);
-    for (int i = 0; i < requestBody.length; i += 1024) {
-      connection.getOutputStream().write(requestBody, i, 1024);
+    for (int j = 0; j < 2; j++) {
+      try {
+        connection = client.open(server.getUrl("/b"));
+        connection.setRequestMethod("POST");
+        transferKind.setForRequest(connection, requestBody.length);
+        for (int i = 0; i < requestBody.length; i += 1024) {
+          connection.getOutputStream().write(requestBody, i, 1024);
+        }
+        connection.getOutputStream().close();
+        assertContent("B", connection);
+        break;
+      } catch (IOException socketException) {
+        // If there's a socket exception, this must have a streamed request body.
+        assertEquals(0, j);
+        assertTrue(transferKind == TransferKind.CHUNKED
+            || transferKind == TransferKind.FIXED_LENGTH);
+      }
     }
-    connection.getOutputStream().close();
-    assertContent("B", connection);
 
     RecordedRequest requestA = server.takeRequest();
     assertEquals("/a", requestA.getPath());
