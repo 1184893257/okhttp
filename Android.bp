@@ -18,8 +18,8 @@ okhttp_common_src_files = ["okhttp/src/main/java/**/*.java"]
 okhttp_common_src_files += ["okhttp-urlconnection/src/main/java/**/*.java"]
 okhttp_common_src_files += ["okhttp-android-support/src/main/java/**/*.java"]
 okhttp_common_src_files += ["okio/okio/src/main/java/**/*.java"]
-okhttp_system_src_files = okhttp_common_src_files + ["-okhttp/src/main/java/com/squareup/okhttp/internal/Platform.java"]
-okhttp_system_src_files += ["android/main/java/**/*.java"]
+okhttp_system_src_files = okhttp_common_src_files + ["android/main/java/**/*.java"]
+okhttp_system_exclude_src_files = ["okhttp/src/main/java/com/squareup/okhttp/internal/Platform.java"]
 
 okhttp_test_src_files = ["okhttp-tests/src/test/java/**/*.java"]
 okhttp_test_src_files += ["okhttp-urlconnection/src/test/java/**/*.java"]
@@ -34,6 +34,7 @@ okhttp_test_src_files += ["okhttp-ws-tests/src/test/java/**/*.java"]
 java_library {
     name: "okhttp",
     srcs: okhttp_system_src_files,
+    exclude_srcs: okhttp_system_exclude_src_files,
     jarjar_rules: "jarjar-rules.txt",
     java_libs: [
         "core-libart",
@@ -51,6 +52,7 @@ java_library {
 java_library_static {
     name: "okhttp-nojarjar",
     srcs: okhttp_system_src_files,
+    exclude_srcs: okhttp_system_exclude_src_files,
     java_libs: [
         "core-libart",
         "conscrypt",
