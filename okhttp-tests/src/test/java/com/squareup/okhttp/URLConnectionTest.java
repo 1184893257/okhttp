@@ -395,7 +395,7 @@ public final class URLConnectionTest {
     try {
       connection.connect();
       fail();
-    } catch (IllegalStateException expected) {
+    } catch (UnknownHostException expected) {
     }
   }
 
@@ -2429,7 +2429,7 @@ public final class URLConnectionTest {
   }
 
   @Test public void malformedUrlThrowsUnknownHostException() throws IOException {
-    connection = client.open(new URL("http:///foo.html"));
+    connection = client.open(new URL("http://./foo.html"));
     try {
       connection.connect();
       fail();
