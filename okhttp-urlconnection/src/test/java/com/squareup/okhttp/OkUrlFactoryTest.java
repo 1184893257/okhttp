@@ -1,12 +1,16 @@
 package com.squareup.okhttp;
 
 import com.squareup.okhttp.internal.http.OkHeaders;
+import com.squareup.okhttp.internal.Platform;
+import com.squareup.okhttp.internal.URLFilter;
+import com.squareup.okhttp.internal.io.FileSystem;
 import com.squareup.okhttp.internal.io.InMemoryFileSystem;
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.MockWebServer;
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -145,6 +149,30 @@ public class OkUrlFactoryTest {
     connection.setInstanceFollowRedirects(false);
     assertResponseBody(connection, "A");
     assertResponseCode(connection, 302);
+  }
+
+  @Test
+  public void testURLFilter() throws Exception {
+    server.enqueue(new MockResponse()
+        .setBody("B"));
+    final URL blockedURL = server.url("/a").url();
+    factory.setUrlFilter(new URLFilter() {
+      @Override
+      public void checkURLPermitted(URL url) throws IOException {
+        if (blockedURL.equals(url)) {
+          throw new IOException("Blocked");
+        }
+      }
+    });
+    try {
+      HttpURLConnection connection = factory.open(server.url("/a").url());
+      connection.getInputStream();
+      fail("Connection was successful");
+    } catch (IOException e) {
+      assertEquals("Blocked", e.getMessage());
+    }
+    HttpURLConnection connection = factory.open(server.url("/b").url());
+    assertResponseBody(connection, "B");
   }
 
   private void assertResponseBody(HttpURLConnection connection, String expected) throws Exception {
