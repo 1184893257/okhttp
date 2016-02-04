@@ -848,7 +848,7 @@ public final class HttpEngine {
         Address address = connection().getRoute().getAddress();
 
         // Confirm that the interceptor uses the connection we've already prepared.
-        if (!request.httpUrl().host().equals(address.getUriHost())
+        if (!request.httpUrl().rfc2732host().equals(address.getRfc2732Host())
             || request.httpUrl().port() != address.getUriPort()) {
           throw new IllegalStateException("network interceptor " + caller
               + " must retain the same host and port");
@@ -1135,7 +1135,7 @@ public final class HttpEngine {
       certificatePinner = client.getCertificatePinner();
     }
 
-    return new Address(request.httpUrl().host(), request.httpUrl().port(),
+    return new Address(request.httpUrl().rfc2732host(), request.httpUrl().port(),
         client.getSocketFactory(), sslSocketFactory, hostnameVerifier, certificatePinner,
         client.getAuthenticator(), client.getProxy(), client.getProtocols(),
         client.getConnectionSpecs(), client.getProxySelector());

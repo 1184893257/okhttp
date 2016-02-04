@@ -222,13 +222,13 @@ public final class Connection {
     try {
       // Create the wrapper over the connected socket.
       sslSocket = (SSLSocket) sslSocketFactory.createSocket(
-          socket, address.getUriHost(), address.getUriPort(), true /* autoClose */);
+          socket, address.getRfc2732Host(), address.getUriPort(), true /* autoClose */);
 
       // Configure the socket's ciphers, TLS versions, and extensions.
       ConnectionSpec connectionSpec = connectionSpecSelector.configureSecureSocket(sslSocket);
       if (connectionSpec.supportsTlsExtensions()) {
         Platform.get().configureTlsExtensions(
-            sslSocket, address.getUriHost(), address.getProtocols());
+            sslSocket, address.getRfc2732Host(), address.getProtocols());
       }
 
       // Force handshake. This can throw!
@@ -236,16 +236,16 @@ public final class Connection {
       Handshake unverifiedHandshake = Handshake.get(sslSocket.getSession());
 
       // Verify that the socket's certificates are acceptable for the target host.
-      if (!address.getHostnameVerifier().verify(address.getUriHost(), sslSocket.getSession())) {
+      if (!address.getHostnameVerifier().verify(address.getRfc2732Host(), sslSocket.getSession())) {
         X509Certificate cert = (X509Certificate) unverifiedHandshake.peerCertificates().get(0);
-        throw new SSLPeerUnverifiedException("Hostname " + address.getUriHost() + " not verified:"
+        throw new SSLPeerUnverifiedException("Hostname " + address.getRfc2732Host() + " not verified:"
             + "\n    certificate: " + CertificatePinner.pin(cert)
             + "\n    DN: " + cert.getSubjectDN().getName()
             + "\n    subjectAltNames: " + OkHostnameVerifier.allSubjectAltNames(cert));
       }
 
       // Check that the certificate pinner is satisfied by the certificates presented.
-      address.getCertificatePinner().check(address.getUriHost(),
+      address.getCertificatePinner().check(address.getRfc2732Host(),
           unverifiedHandshake.peerCertificates());
 
       // Success! Save the handshake and the ALPN protocol.
@@ -282,7 +282,7 @@ public final class Connection {
     HttpConnection tunnelConnection = new HttpConnection(pool, this, socket);
     tunnelConnection.setTimeouts(readTimeout, writeTimeout);
     HttpUrl url = tunnelRequest.httpUrl();
-    String requestLine = "CONNECT " + url.host() + ":" + url.port() + " HTTP/1.1";
+    String requestLine = "CONNECT " + url.rfc2732host() + ":" + url.port() + " HTTP/1.1";
     while (true) {
       tunnelConnection.writeRequest(tunnelRequest.headers(), requestLine);
       tunnelConnection.flush();

@@ -388,6 +388,19 @@ public final class HttpUrl {
   }
 
   /**
+   * Same as {@link #host} except that literal IPv6 addresses are surrounding by square
+   * braces. For example, this method will return {@code [::1]} where {@code host} returns
+   * {@code ::1}.
+   */
+  public String rfc2732host() {
+    if (host.indexOf(':') == -1) {
+      return host;
+    }
+
+    return "[" + host + "]";
+  }
+
+  /**
    * Returns the explicitly-specified port if one was provided, or the default port for this URL's
    * scheme. For example, this returns 8443 for {@code https://square.com:8443/} and 443 for {@code
    * https://square.com/}. The result is in {@code [1..65535]}.
