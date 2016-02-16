@@ -51,6 +51,7 @@ LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_JAVA_LIBRARY)
 
 # non-jarjar'd version of okhttp to compile the tests against
@@ -61,6 +62,7 @@ LOCAL_SRC_FILES := $(okhttp_system_src_files)
 LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -70,6 +72,7 @@ LOCAL_SRC_FILES := $(okhttp_test_src_files)
 LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp-nojarjar junit4-target bouncycastle-nojarjar conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 ifeq ($(HOST_OS),linux)
@@ -80,5 +83,6 @@ LOCAL_SRC_FILES := $(okhttp_system_src_files)
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 LOCAL_JAVA_LIBRARIES := conscrypt-hostdex
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # ($(HOST_OS),linux)
