@@ -259,8 +259,8 @@ public final class Util {
   public static String hostHeader(HttpUrl url) {
     // TODO: square braces for IPv6 ?
     return url.port() != HttpUrl.defaultPort(url.scheme())
-        ? url.host() + ":" + url.port()
-        : url.host();
+        ? url.rfc2732host() + ":" + url.port()
+        : url.rfc2732host();
   }
 
   /** Returns {@code s} with control characters and non-ASCII characters replaced with '?'. */
