@@ -162,7 +162,7 @@ public final class Http2xStream implements HttpStream {
     result.add(new Header(TARGET_METHOD, request.method()));
     result.add(new Header(TARGET_PATH, RequestLine.requestPath(request.httpUrl())));
     result.add(new Header(VERSION, "HTTP/1.1"));
-    result.add(new Header(TARGET_HOST, Util.hostHeader(request.httpUrl())));
+    result.add(new Header(TARGET_HOST, Util.hostHeader(request.httpUrl(), false)));
     result.add(new Header(TARGET_SCHEME, request.httpUrl().scheme()));
 
     Set<ByteString> names = new LinkedHashSet<>();
@@ -201,7 +201,7 @@ public final class Http2xStream implements HttpStream {
     List<Header> result = new ArrayList<>(headers.size() + 4);
     result.add(new Header(TARGET_METHOD, request.method()));
     result.add(new Header(TARGET_PATH, RequestLine.requestPath(request.httpUrl())));
-    result.add(new Header(TARGET_AUTHORITY, Util.hostHeader(request.httpUrl()))); // Optional.
+    result.add(new Header(TARGET_AUTHORITY, Util.hostHeader(request.httpUrl(), false))); // Optional
     result.add(new Header(TARGET_SCHEME, request.httpUrl().scheme()));
 
     for (int i = 0, size = headers.size(); i < size; i++) {
