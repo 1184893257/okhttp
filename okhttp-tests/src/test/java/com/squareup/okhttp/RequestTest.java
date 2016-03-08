@@ -182,6 +182,8 @@ public final class RequestTest {
     // assertForbiddenHeader("\n");
     assertForbiddenHeader("a\nb");
     assertForbiddenHeader("\nb");
+    assertForbiddenHeader("a\rb");
+    assertForbiddenHeader("\rb");
     // End of Android modification.
     assertForbiddenHeader("\t");
     assertForbiddenHeader("\u001f");
