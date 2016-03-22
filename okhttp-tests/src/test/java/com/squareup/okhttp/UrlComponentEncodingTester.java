@@ -27,6 +27,10 @@ import static org.junit.Assert.fail;
 
 /** Tests how each code point is encoded and decoded in the context of each URL component. */
 class UrlComponentEncodingTester {
+  private static final int UNICODE_2 = 0x07ff; // Arbitrary code point that's 2 bytes in UTF-8.
+  private static final int UNICODE_3 = 0xffff; // Arbitrary code point that's 3 bytes in UTF-8.
+  private static final int UNICODE_4 = 0x10ffff; // Arbitrary code point that's 4 bytes in UTF-8.
+
   /**
    * The default encode set for the ASCII range. The specific rules vary per-component: for example,
    * '?' may be identity-encoded in a fragment, but must be percent-encoded in a path.
@@ -164,11 +168,14 @@ class UrlComponentEncodingTester {
     map.put((int)  '}', Encoding.IDENTITY);
     map.put((int)  '~', Encoding.IDENTITY);
     map.put(      0x7f, Encoding.PERCENT); // Delete
+    map.put( UNICODE_2, Encoding.PERCENT);
+    map.put( UNICODE_3, Encoding.PERCENT);
+    map.put( UNICODE_4, Encoding.PERCENT);
     defaultEncodings = Collections.unmodifiableMap(map);
   }
 
   private final Map<Integer, Encoding> encodings;
-  private final StringBuilder skipForUri = new StringBuilder();
+  private final StringBuilder uriEscapedCodePoints = new StringBuilder();
 
   public UrlComponentEncodingTester() {
     this.encodings = new LinkedHashMap<>(defaultEncodings);
@@ -181,12 +188,19 @@ class UrlComponentEncodingTester {
     return this;
   }
 
+  public UrlComponentEncodingTester identityForNonAscii() {
+    encodings.put(UNICODE_2, Encoding.IDENTITY);
+    encodings.put(UNICODE_3, Encoding.IDENTITY);
+    encodings.put(UNICODE_4, Encoding.IDENTITY);
+    return this;
+  }
+
   /**
    * Configure a character to be skipped but only for conversion to and from {@code java.net.URI}.
    * That class is more strict than the others.
    */
   public UrlComponentEncodingTester skipForUri(int... codePoints) {
-    skipForUri.append(new String(codePoints, 0, codePoints.length));
+    uriEscapedCodePoints.append(new String(codePoints, 0, codePoints.length));
     return this;
   }
 
@@ -202,9 +216,10 @@ class UrlComponentEncodingTester {
       testToUrl(codePoint, encoding, component);
       testFromUrl(codePoint, encoding, component);
 
-      if (skipForUri.indexOf(Encoding.IDENTITY.encode(codePoint)) == -1) {
-        testToUri(codePoint, encoding, component);
-        testFromUri(codePoint, encoding, component);
+      if (codePoint != '%') {
+        boolean uriEscaped = uriEscapedCodePoints.indexOf(
+            Encoding.IDENTITY.encode(codePoint)) != -1;
+        testUri(codePoint, encoding, component, uriEscaped);
       }
     }
     return this;
@@ -261,21 +276,29 @@ class UrlComponentEncodingTester {
     }
   }
 
-  private void testToUri(int codePoint, Encoding encoding, Component component) {
+  private void testUri(
+      int codePoint, Encoding encoding, Component component, boolean uriEscaped) {
+    String string = new String(new int[] { codePoint }, 0, 1);
     String encoded = encoding.encode(codePoint);
     HttpUrl httpUrl = HttpUrl.parse(component.urlString(encoded));
     URI uri = httpUrl.uri();
-    if (!uri.toString().equals(uri.toString())) {
-      fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
-    }
-  }
-
-  private void testFromUri(int codePoint, Encoding encoding, Component component) {
-    String encoded = encoding.encode(codePoint);
-    HttpUrl httpUrl = HttpUrl.parse(component.urlString(encoded));
-    HttpUrl toAndFromUri = HttpUrl.get(httpUrl.uri());
-    if (!toAndFromUri.equals(httpUrl)) {
-      fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
+    HttpUrl toAndFromUri = HttpUrl.get(uri);
+    if (uriEscaped) {
+      // The URI has more escaping than the HttpURL. Check that the decoded values still match.
+      if (uri.toString().equals(httpUrl.toString())) {
+        fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
+      }
+      if (!component.get(toAndFromUri).equals(string)) {
+        fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
+      }
+    } else {
+      // Check that the URI and HttpURL have the exact same escaping.
+      if (!toAndFromUri.equals(httpUrl)) {
+        fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
+      }
+      if (!uri.toString().equals(httpUrl.toString())) {
+        fail(String.format("Encoding %s %#x using %s", component, codePoint, encoding));
+      }
     }
   }
 
@@ -358,10 +381,11 @@ class UrlComponentEncodingTester {
         return query.substring(1, query.length() - 1);
       }
       @Override public void set(HttpUrl.Builder builder, String value) {
-        builder.query(value);
+        builder.query("a" + value + "z");
       }
       @Override public String get(HttpUrl url) {
-        return url.query();
+        String query = url.query();
+        return query.substring(1, query.length() - 1);
       }
     },
     FRAGMENT {
@@ -373,10 +397,11 @@ class UrlComponentEncodingTester {
         return fragment.substring(1, fragment.length() - 1);
       }
       @Override public void set(HttpUrl.Builder builder, String value) {
-        builder.fragment(value);
+        builder.fragment("a" + value + "z");
       }
       @Override public String get(HttpUrl url) {
-        return url.fragment();
+        String fragment = url.fragment();
+        return fragment.substring(1, fragment.length() - 1);
       }
     };
 
