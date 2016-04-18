@@ -94,6 +94,7 @@ public class BufferedSourceTest {
 
   // ANDROID-BEGIN
   //  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters
   // ANDROID-END
   public static List<Object[]> parameters() {
     return Arrays.asList(
@@ -104,7 +105,10 @@ public class BufferedSourceTest {
 
   // ANDROID-BEGIN
   // @Parameterized.Parameter
-  public Factory factory = (Factory) (parameters().get(0))[0];
+  private final Factory factory;
+  public BufferedSourceTest(Factory factory) {
+    this.factory = factory;
+  }
   // ANDROID-END
   private BufferedSink sink;
   private BufferedSource source;
