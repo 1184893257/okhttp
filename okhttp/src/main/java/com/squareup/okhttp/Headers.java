@@ -304,7 +304,12 @@ public final class Headers {
 
       for (int i = 0, length = value.length(); i < length; i++) {
         char c = value.charAt(i);
-        if (c <= '\u001f' || c >= '\u007f') {
+        // ANDROID-BEGIN
+        // http://b/28867041 - keep things working for apps that rely on Android's (out of spec)
+        // UTF-8 header encoding behavior.
+        // if (c <= '\u001f' || c >= '\u007f') {
+        if (c <= '\u001f' || c == '\u007f') {
+        // ANDROID-END
           throw new IllegalArgumentException(String.format(
               "Unexpected char %#04x at %d in header value: %s", (int) c, i, value));
         }
