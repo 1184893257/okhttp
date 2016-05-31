@@ -2811,11 +2811,14 @@ public final class URLConnectionTest {
       fail();
     } catch (IllegalArgumentException expected) {
     }
-    try {
-      connection.addRequestProperty("Name", "\u2615\ufe0f");
-      fail();
-    } catch (IllegalArgumentException expected) {
-    }
+
+    // ANDROID-BEGIN Disabled for http://b/28867041
+    // try {
+    //   connection.addRequestProperty("Name", "\u2615\ufe0f");
+    //   fail();
+    // } catch (IllegalArgumentException expected) {
+    // }
+    // ANDROID-END
   }
 
   @Test public void responseHeaderParsingIsLenient() throws Exception {
