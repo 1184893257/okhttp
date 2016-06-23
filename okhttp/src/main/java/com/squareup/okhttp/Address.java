@@ -71,7 +71,7 @@ public final class Address {
   }
 
   /** Returns the hostname of the origin server. */
-  public String getRfc2732Host() {
+  public String getUriHost() {
     return uriHost;
   }
 
