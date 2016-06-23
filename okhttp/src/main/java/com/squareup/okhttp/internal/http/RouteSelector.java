@@ -149,7 +149,7 @@ public final class RouteSelector {
   /** Returns the next proxy to try. May be PROXY.NO_PROXY but never null. */
   private Proxy nextProxy() throws IOException {
     if (!hasNextProxy()) {
-      throw new SocketException("No route to " + address.getRfc2732Host()
+      throw new SocketException("No route to " + address.getUriHost()
           + "; exhausted proxy configurations: " + proxies);
     }
     Proxy result = proxies.get(nextProxyIndex++);
@@ -165,7 +165,7 @@ public final class RouteSelector {
     String socketHost;
     int socketPort;
     if (proxy.type() == Proxy.Type.DIRECT || proxy.type() == Proxy.Type.SOCKS) {
-      socketHost = address.getRfc2732Host();
+      socketHost = address.getUriHost();
       socketPort = address.getUriPort();
     } else {
       SocketAddress proxyAddress = proxy.address();
@@ -217,7 +217,7 @@ public final class RouteSelector {
   /** Returns the next socket address to try. */
   private InetSocketAddress nextInetSocketAddress() throws IOException {
     if (!hasNextInetSocketAddress()) {
-      throw new SocketException("No route to " + address.getRfc2732Host()
+      throw new SocketException("No route to " + address.getUriHost()
           + "; exhausted inet socket addresses: " + inetSocketAddresses);
     }
     return inetSocketAddresses.get(nextInetSocketAddressIndex++);
