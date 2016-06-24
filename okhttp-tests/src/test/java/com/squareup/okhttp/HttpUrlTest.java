@@ -1079,6 +1079,9 @@ public final class HttpUrlTest {
     assertEquals("http://username:password@host/path?query#fragment", httpUrl.toString());
   }
 
+  // ANDROID-BEGIN
+  @Ignore // Android's URL implementation does not support mailto:
+  // ANDROID-END
   @Test public void fromJavaNetUrlUnsupportedScheme() throws Exception {
     URL javaNetUrl = new URL("mailto:user@example.com");
     assertEquals(null, HttpUrl.get(javaNetUrl));

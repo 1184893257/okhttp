@@ -34,7 +34,9 @@ public final class ReadUtf8LineTest {
     BufferedSource create(Buffer data);
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  // ANDROID-BEGIN
+  //  @Parameterized.Parameters(name = "{0}")
+  // ANDROID-END
   public static List<Object[]> parameters() {
     return Arrays.asList(
         new Object[] { new Factory() {
@@ -71,8 +73,10 @@ public final class ReadUtf8LineTest {
     );
   }
 
-  @Parameterized.Parameter
-  public Factory factory;
+  // ANDROID-BEGIN
+  //  @Parameterized.Parameter
+  public Factory factory = (Factory) (parameters().get(0))[0];
+  // ANDROID-END
 
   private Buffer data;
   private BufferedSource source;
