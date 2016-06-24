@@ -29,7 +29,6 @@ import com.squareup.okhttp.Response;
 import com.squareup.okhttp.Route;
 import com.squareup.okhttp.internal.Internal;
 import com.squareup.okhttp.internal.Platform;
-import com.squareup.okhttp.internal.URLFilter;
 import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.internal.Version;
 import com.squareup.okhttp.internal.http.HttpDate;
@@ -40,6 +39,7 @@ import com.squareup.okhttp.internal.http.RequestException;
 import com.squareup.okhttp.internal.http.RetryableSink;
 import com.squareup.okhttp.internal.http.RouteException;
 import com.squareup.okhttp.internal.http.StatusLine;
+import com.squareup.okhttp.internal.http.StreamAllocation;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,7 +73,7 @@ import okio.Sink;
  *
  * <h3>What does 'connected' mean?</h3>
  * This class inherits a {@code connected} field from the superclass. That field
- * is <strong>not</strong> used to indicate not whether this URLConnection is
+ * is <strong>not</strong> used to indicate whether this URLConnection is
  * currently connected. Instead, it indicates whether a connection has ever been
  * attempted. Once a connection has been attempted, certain properties (request
  * header fields, request method, etc.) are immutable.
@@ -107,16 +107,9 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
    */
   Handshake handshake;
 
-  private URLFilter urlFilter;
-
   public HttpURLConnectionImpl(URL url, OkHttpClient client) {
     super(url);
     this.client = client;
-  }
-
-  public HttpURLConnectionImpl(URL url, OkHttpClient client, URLFilter urlFilter) {
-    this(url, client);
-    this.urlFilter = urlFilter;
   }
 
   @Override public final void connect() throws IOException {
@@ -131,7 +124,7 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
     // Calling disconnect() before a connection exists should have no effect.
     if (httpEngine == null) return;
 
-    httpEngine.disconnect();
+    httpEngine.cancel();
 
     // This doesn't close the stream because doing so would require all stream
     // access to be synchronized. It's expected that the thread using the
@@ -161,9 +154,9 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
     if (responseHeaders == null) {
       Response response = getResponse().getResponse();
       Headers headers = response.headers();
-
       responseHeaders = headers.newBuilder()
-          .add(Platform.get().getPrefix() + "-Response-Source", responseSourceHeader(response))
+          .add(OkHeaders.SELECTED_PROTOCOL, response.protocol().toString())
+          .add(OkHeaders.RESPONSE_SOURCE, responseSourceHeader(response))
           .build();
     }
     return responseHeaders;
@@ -335,8 +328,9 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
     }
   }
 
-  private HttpEngine newHttpEngine(String method, Connection connection, RetryableSink requestBody,
-      Response priorResponse) throws MalformedURLException, UnknownHostException {
+  private HttpEngine newHttpEngine(String method, StreamAllocation streamAllocation,
+      RetryableSink requestBody, Response priorResponse)
+      throws MalformedURLException, UnknownHostException {
     // OkHttp's Call API requires a placeholder body; the real body will be streamed separately.
     RequestBody placeholderBody = HttpMethod.requiresRequestBody(method)
         ? EMPTY_REQUEST_BODY
@@ -380,7 +374,7 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
       engineClient = client.clone().setCache(null);
     }
 
-    return new HttpEngine(engineClient, request, bufferRequestBody, true, false, connection, null,
+    return new HttpEngine(engineClient, request, bufferRequestBody, true, false, streamAllocation,
         requestBody, priorResponse);
   }
 
@@ -410,7 +404,7 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
       Request followUp = httpEngine.followUpRequest();
 
       if (followUp == null) {
-        httpEngine.releaseConnection();
+        httpEngine.releaseStreamAllocation();
         return httpEngine;
       }
 
@@ -434,12 +428,13 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
         throw new HttpRetryException("Cannot retry streamed HTTP body", responseCode);
       }
 
+      StreamAllocation streamAllocation = httpEngine.close();
       if (!httpEngine.sameConnection(followUp.httpUrl())) {
-        httpEngine.releaseConnection();
+        streamAllocation.release();
+        streamAllocation = null;
       }
 
-      Connection connection = httpEngine.close();
-      httpEngine = newHttpEngine(followUp.method(), connection, (RetryableSink) requestBody,
+      httpEngine = newHttpEngine(followUp.method(), streamAllocation, (RetryableSink) requestBody,
           response);
     }
   }
@@ -450,18 +445,21 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
    * retried. Throws an exception if the request failed permanently.
    */
   private boolean execute(boolean readResponse) throws IOException {
-    if (urlFilter != null) {
-      urlFilter.checkURLPermitted(httpEngine.getRequest().url());
-    }
+    boolean releaseConnection = true;
     try {
       httpEngine.sendRequest();
-      route = httpEngine.getRoute();
-      handshake = httpEngine.getConnection() != null
-          ? httpEngine.getConnection().getHandshake()
-          : null;
+      Connection connection = httpEngine.getConnection();
+      if (connection != null) {
+        route = connection.getRoute();
+        handshake = connection.getHandshake();
+      } else {
+        route = null;
+        handshake = null;
+      }
       if (readResponse) {
         httpEngine.readResponse();
       }
+      releaseConnection = false;
 
       return true;
     } catch (RequestException e) {
@@ -473,6 +471,7 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
       // The attempt to connect via a route failed. The request will not have been sent.
       HttpEngine retryEngine = httpEngine.recover(e);
       if (retryEngine != null) {
+        releaseConnection = false;
         httpEngine = retryEngine;
         return false;
       }
@@ -485,6 +484,7 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
       // An attempt to communicate with a server failed. The request may have been sent.
       HttpEngine retryEngine = httpEngine.recover(e);
       if (retryEngine != null) {
+        releaseConnection = false;
         httpEngine = retryEngine;
         return false;
       }
@@ -492,6 +492,12 @@ public class HttpURLConnectionImpl extends HttpURLConnection {
       // Give up; recovery is not possible.
       httpEngineFailure = e;
       throw e;
+    } finally {
+      // We're throwing an unchecked exception. Release any resources.
+      if (releaseConnection) {
+        StreamAllocation streamAllocation = httpEngine.close();
+        streamAllocation.release();
+      }
     }
   }
 

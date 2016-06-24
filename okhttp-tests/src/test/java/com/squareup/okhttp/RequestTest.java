@@ -177,22 +177,13 @@ public final class RequestTest {
   @Test public void headerForbidsControlCharacters() throws Exception {
     assertForbiddenHeader(null);
     assertForbiddenHeader("\u0000");
-    // Workaround for http://b/26422335 , http://b/26889631
-    // assertForbiddenHeader("\n");
-    assertForbiddenHeader("a\nb");
-    assertForbiddenHeader("\nb");
-    // assertForbiddenHeader("\r");
-    assertForbiddenHeader("a\rb");
-    assertForbiddenHeader("\rb");
-    // End of Android modification.
+    assertForbiddenHeader("\r");
+    assertForbiddenHeader("\n");
     assertForbiddenHeader("\t");
     assertForbiddenHeader("\u001f");
     assertForbiddenHeader("\u007f");
-
-    // ANDROID-BEGIN Workaround for http://b/28867041
-    // assertForbiddenHeader("\u0080");
-    // assertForbiddenHeader("\ud83c\udf69");
-    // ANDROID-END
+    assertForbiddenHeader("\u0080");
+    assertForbiddenHeader("\ud83c\udf69");
   }
 
   private void assertForbiddenHeader(String s) {

@@ -15,7 +15,6 @@
  */
 package com.squareup.okhttp;
 
-import com.squareup.okhttp.internal.URLFilter;
 import com.squareup.okhttp.internal.huc.HttpURLConnectionImpl;
 import com.squareup.okhttp.internal.huc.HttpsURLConnectionImpl;
 
@@ -28,7 +27,6 @@ import java.net.URLStreamHandlerFactory;
 
 public final class OkUrlFactory implements URLStreamHandlerFactory, Cloneable {
   private final OkHttpClient client;
-  private URLFilter urlFilter;
 
   public OkUrlFactory(OkHttpClient client) {
     this.client = client;
@@ -36,10 +34,6 @@ public final class OkUrlFactory implements URLStreamHandlerFactory, Cloneable {
 
   public OkHttpClient client() {
     return client;
-  }
-
-  void setUrlFilter(URLFilter filter) {
-    urlFilter = filter;
   }
 
   /**
@@ -59,8 +53,8 @@ public final class OkUrlFactory implements URLStreamHandlerFactory, Cloneable {
     OkHttpClient copy = client.copyWithDefaults();
     copy.setProxy(proxy);
 
-    if (protocol.equals("http")) return new HttpURLConnectionImpl(url, copy, urlFilter);
-    if (protocol.equals("https")) return new HttpsURLConnectionImpl(url, copy, urlFilter);
+    if (protocol.equals("http")) return new HttpURLConnectionImpl(url, copy);
+    if (protocol.equals("https")) return new HttpsURLConnectionImpl(url, copy);
     throw new IllegalArgumentException("Unexpected protocol: " + protocol);
   }
 

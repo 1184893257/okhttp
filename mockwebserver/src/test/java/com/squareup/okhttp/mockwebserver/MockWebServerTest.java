@@ -20,6 +20,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
@@ -40,6 +41,7 @@ import org.junit.runners.model.Statement;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -253,7 +255,30 @@ public final class MockWebServerTest {
     in.close();
   }
 
-  @Test public void disconnectHalfway() throws IOException {
+  @Test public void disconnectRequestHalfway() throws IOException {
+    server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_REQUEST_BODY));
+
+    HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+    connection.setRequestMethod("POST");
+    connection.setDoOutput(true);
+    connection.setFixedLengthStreamingMode(1024 * 1024 * 1024); // 1 GB
+    connection.connect();
+    OutputStream out = connection.getOutputStream();
+
+    byte[] data = new byte[1024 * 1024];
+    int i;
+    for (i = 0; i < 1024; i++) {
+      try {
+        out.write(data);
+        out.flush();
+      } catch (IOException e) {
+        break;
+      }
+    }
+    assertEquals(512f, i, 10f); // Halfway +/- 1%
+  }
+
+  @Test public void disconnectResponseHalfway() throws IOException {
     server.enqueue(new MockResponse()
         .setBody("ab")
         .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY));
@@ -333,10 +358,4 @@ public final class MockWebServerTest {
     } catch (ConnectException expected) {
     }
   }
-
-  // ANDROID-BEGIN Android uses JUnit 4.10 which does not have assertNotEquals()
-  private static void assertNotEquals(Object o1, Object o2) {
-    org.junit.Assert.assertFalse(o1 == o2 || (o1 != null && o1.equals(o2)));
-  }
-  // ANDROID-END
 }
