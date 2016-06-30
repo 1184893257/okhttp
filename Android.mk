@@ -19,6 +19,7 @@ okhttp_common_src_files := $(call all-java-files-under,okhttp/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okhttp-urlconnection/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okhttp-android-support/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okio/okio/src/main/java)
+
 okhttp_system_src_files := $(filter-out %/Platform.java, $(okhttp_common_src_files))
 okhttp_system_src_files += $(call all-java-files-under, android/main/java)
 
@@ -33,12 +34,9 @@ okhttp_test_src_files += $(call all-java-files-under,okio/okio/src/test/java)
 okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/main/java)
 okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/test/java)
 
-# Exclude tests Android currently has problems with:
-# 1) Parameterized (requires JUnit 4.11).
-# 2) New dependencies like gson.
+# Exclude test Android currently has problems with due to @Parameterized (requires JUnit 4.11).
 okhttp_test_src_excludes := \
-    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java \
-    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformTestRun.java
+    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java
 
 okhttp_test_src_files := \
     $(filter-out $(okhttp_test_src_excludes), $(okhttp_test_src_files))

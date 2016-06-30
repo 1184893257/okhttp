@@ -1564,7 +1564,7 @@ public final class HttpUrl {
    *
    * @param alreadyEncoded true to leave '%' as-is; false to convert it to '%25'.
    * @param strict true to encode '%' if it is not the prefix of a valid percent encoding.
-   * @param plusIsSpace true to encode '+' as "%2B" if it is not already encoded
+   * @param plusIsSpace true to encode '+' as "%2B" if it is not already encoded.
    * @param asciiOnly true to encode all non-ASCII codepoints.
    */
   static String canonicalize(String input, int pos, int limit, String encodeSet,
@@ -1626,9 +1626,9 @@ public final class HttpUrl {
     }
   }
 
-  static String canonicalize(String input, String encodeSet, boolean alreadyEncoded, boolean strict,
-      boolean plusIsSpace, boolean asciiOnly) {
-    return canonicalize(
-        input, 0, input.length(), encodeSet, alreadyEncoded, strict, plusIsSpace, asciiOnly);
+  static String canonicalize(String input, String encodeSet, boolean alreadyEncoded,
+      boolean strict, boolean plusIsSpace, boolean asciiOnly) {
+    return canonicalize(input, 0, input.length(),
+            encodeSet, alreadyEncoded, strict, plusIsSpace, asciiOnly);
   }
 }
