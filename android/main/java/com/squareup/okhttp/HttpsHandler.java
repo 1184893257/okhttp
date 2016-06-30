@@ -98,6 +98,12 @@ public final class HttpsHandler extends HttpHandler {
         // Use Android's preferred fallback approach and cipher suite selection.
         okHttpClient.setConnectionSpecs(SECURE_CONNECTION_SPECS);
 
+        // Android support certificate pinning via NetworkSecurityConfig so there is no need to
+        // also expose OkHttp's mechanism. The OkHttpClient underlying https HttpsURLConnections
+        // in Android should therefore always use the default certificate pinner, whose set of
+        // {@code hostNamesToPin} is empty.
+        okHttpClient.setCertificatePinner(CertificatePinner.DEFAULT);
+
         // OkHttp does not automatically honor the system-wide HostnameVerifier set with
         // HttpsURLConnection.setDefaultHostnameVerifier().
         okUrlFactory.client().setHostnameVerifier(HttpsURLConnection.getDefaultHostnameVerifier());
