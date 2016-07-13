@@ -689,19 +689,29 @@ public final class URLConnectionTest {
     testConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
   }
 
+  // ANDROID-BEGIN: http://b/29983827
   private void testConnectViaProxy(ProxyConfig proxyConfig) throws Exception {
+    testConnectViaProxy(proxyConfig, "http://android.com/foo", "android.com");
+    testConnectViaProxy(proxyConfig, "http://android.com/", "android.com");
+    testConnectViaProxy(proxyConfig, "http://android.com", "android.com");
+    testConnectViaProxy(proxyConfig, "http://mms", "mms");
+  }
+
+  private void testConnectViaProxy(ProxyConfig proxyConfig, String urlString, String expectedHost)
+          throws Exception {
     MockResponse mockResponse = new MockResponse().setBody("this response comes via a proxy");
     server.enqueue(mockResponse);
 
-    URL url = new URL("http://android.com/foo");
+    URL url = new URL(urlString);
     connection = proxyConfig.connect(server, client, url);
     assertContent("this response comes via a proxy", connection);
     assertTrue(connection.usingProxy());
 
     RecordedRequest request = server.takeRequest();
-    assertEquals("GET http://android.com/foo HTTP/1.1", request.getRequestLine());
-    assertEquals("android.com", request.getHeader("Host"));
+    assertEquals("GET " + urlString + " HTTP/1.1", request.getRequestLine());
+    assertEquals(expectedHost, request.getHeader("Host"));
   }
+  // ANDROID-END: http://b/29983827
 
   @Test public void contentDisagreesWithContentLengthHeaderBodyTooLong() throws IOException {
     server.enqueue(new MockResponse().setBody("abc\r\nYOU SHOULD NOT SEE THIS")
