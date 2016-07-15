@@ -429,11 +429,18 @@ public final class HttpUrl {
   }
 
   /**
-   * Returns the entire path of this URL, encoded for use in HTTP resource resolution. The
-   * returned path is always nonempty and is prefixed with {@code /}.
+   * Returns the entire path of this URL, encoded for use in HTTP resource resolution.
+   // ANDROID-BEGIN: http://b/29983827
+   //   * The returned path is always nonempty and is prefixed with {@code /}.
+   // ANDROID-END: http://b/29983827
    */
   public String encodedPath() {
     int pathStart = url.indexOf('/', scheme.length() + 3); // "://".length() == 3.
+    // ANDROID-BEGIN: http://b/29983827
+    if (pathStart == -1) {
+      return "";
+    }
+    // ANDROID-END: http://b/29983827
     int pathEnd = delimiterOffset(url, pathStart, url.length(), "?#");
     return url.substring(pathStart, pathEnd);
   }
@@ -447,6 +454,12 @@ public final class HttpUrl {
 
   public List<String> encodedPathSegments() {
     int pathStart = url.indexOf('/', scheme.length() + 3);
+    // ANDROID-BEGIN: http://b/29983827
+    if (pathStart == -1) {
+      return new ArrayList<>();
+    }
+    // ANDROID-END: http://b/29983827
+
     int pathEnd = delimiterOffset(url, pathStart, url.length(), "?#");
     List<String> result = new ArrayList<>();
     for (int i = pathStart; i < pathEnd; ) {
@@ -577,13 +590,19 @@ public final class HttpUrl {
 
   /** Returns the URL that would be retrieved by following {@code link} from this URL. */
   public HttpUrl resolve(String link) {
-    Builder builder = new Builder();
+    // ANDROID-BEGIN: http://b/29983827
+    // Builder builder = new Builder();
+    Builder builder = new Builder(false);
+    // ANDROID-END: http://b/29983827
     Builder.ParseResult result = builder.parse(this, link);
     return result == Builder.ParseResult.SUCCESS ? builder.build() : null;
   }
 
   public Builder newBuilder() {
-    Builder result = new Builder();
+    // ANDROID-BEGIN: http://b/29983827
+    // Builder builder = new Builder();
+    Builder result = new Builder(false);
+    // ANDROID-END: http://b/29983827
     result.scheme = scheme;
     result.encodedUsername = encodedUsername();
     result.encodedPassword = encodedPassword();
@@ -602,7 +621,10 @@ public final class HttpUrl {
    * URL, or null if it isn't.
    */
   public static HttpUrl parse(String url) {
-    Builder builder = new Builder();
+    // ANDROID-BEGIN: http://b/29983827
+    // Builder builder = new Builder();
+    Builder builder = new Builder(false);
+    // ANDROID-END: http://b/29983827
     Builder.ParseResult result = builder.parse(null, url);
     return result == Builder.ParseResult.SUCCESS ? builder.build() : null;
   }
@@ -623,7 +645,10 @@ public final class HttpUrl {
    * @throws UnknownHostException if the host was invalid
    */
   static HttpUrl getChecked(String url) throws MalformedURLException, UnknownHostException {
-    Builder builder = new Builder();
+    // ANDROID-END: http://b/29983827
+    // Builder builder = new Builder();
+    Builder builder = new Builder(false);
+    // ANDROID-END: http://b/29983827
     Builder.ParseResult result = builder.parse(null, url);
     switch (result) {
       case SUCCESS:
@@ -664,9 +689,21 @@ public final class HttpUrl {
     List<String> encodedQueryNamesAndValues;
     String encodedFragment;
 
+    // ANDROID-BEGIN: http://b/29983827
+    // public Builder() {
+    //   encodedPathSegments.add(""); // The default path is '/' which needs a trailing space.
+    // }
+
     public Builder() {
-      encodedPathSegments.add(""); // The default path is '/' which needs a trailing space.
+      this(true); // // The default path is '/' which needs a trailing space.
     }
+
+    private Builder(boolean startWithSlash) {
+      if (startWithSlash) {
+        encodedPathSegments.add("");
+      }
+    }
+    // ANDROID-END: http://b/29983827
 
     public Builder scheme(String scheme) {
       if (scheme == null) {
@@ -769,9 +806,12 @@ public final class HttpUrl {
 
     public Builder removePathSegment(int index) {
       encodedPathSegments.remove(index);
-      if (encodedPathSegments.isEmpty()) {
-        encodedPathSegments.add(""); // Always leave at least one '/'.
-      }
+      // ANDROID-BEGIN: http://b/29983827. Note this method only used from tests.
+      // Only changed for consistency.
+      //      if (encodedPathSegments.isEmpty()) {
+      //        encodedPathSegments.add(""); // Always leave at least one '/'.
+      //      }
+      // ANDROID-END: http://b/29983827 - only used from tests
       return this;
     }
 
@@ -1099,8 +1139,14 @@ public final class HttpUrl {
         encodedPathSegments.add("");
         pos++;
       } else {
-        // Relative path: clear everything after the last '/'.
-        encodedPathSegments.set(encodedPathSegments.size() - 1, "");
+        // ANDROID-BEGIN: http://b/29983827
+        // // Relative path: clear everything after the last '/'.
+        // encodedPathSegments.set(encodedPathSegments.size() - 1, "");
+        // Relative path: clear everything after the last '/' (if there is one).
+        if (!encodedPathSegments.isEmpty()) {
+          encodedPathSegments.set(encodedPathSegments.size() - 1, "");
+        }
+        // ANDROID-END: http://b/29983827
       }
 
       // Read path segments.
@@ -1125,6 +1171,15 @@ public final class HttpUrl {
         pop();
         return;
       }
+
+      // ANDROID-BEGIN: http://b/29983827
+      // If the encodedPathSegments doesn't even include "/" then add the leading "/" before
+      // pushing more segments or modifying existing segments.
+      if (encodedPathSegments.isEmpty()) {
+        encodedPathSegments.add("");
+      }
+      // ANDROID-END: http://b/29983827
+
       if (encodedPathSegments.get(encodedPathSegments.size() - 1).isEmpty()) {
         encodedPathSegments.set(encodedPathSegments.size() - 1, segment);
       } else {
@@ -1157,6 +1212,14 @@ public final class HttpUrl {
      * to ["a", "b", ""].
      */
     private void pop() {
+      // ANDROID-BEGIN: http://b/29983827
+      // Cannot pop() if there isn't even a "/". Leave the path as is. This method is only used
+      // from push(). push() handles the empty case explicitly.
+      if (encodedPathSegments.isEmpty()) {
+        return;
+      }
+      // ANDROID-END: http://b/29983827
+
       String removed = encodedPathSegments.remove(encodedPathSegments.size() - 1);
 
       // Make sure the path ends with a '/' by either adding an empty string or clearing a segment.

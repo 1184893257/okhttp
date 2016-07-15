@@ -44,6 +44,13 @@ public final class RequestLine {
    */
   public static String requestPath(HttpUrl url) {
     String path = url.encodedPath();
+    // ANDROID-BEGIN: http://b/29983827 - Now path can be empty, which is forbidden in relative
+    // paths so we must handle it here.
+    if (path.isEmpty()) {
+      path = "/";
+    }
+    // ANDROID-END: http://b/29983827
+
     String query = url.encodedQuery();
     return query != null ? (path + '?' + query) : path;
   }
