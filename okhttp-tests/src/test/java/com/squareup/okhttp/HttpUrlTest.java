@@ -29,7 +29,6 @@ import org.junit.Test;
 
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
@@ -111,11 +110,7 @@ public final class HttpUrlTest {
 
   @Test public void resolveNoScheme() throws Exception {
     HttpUrl base = HttpUrl.parse("http://host/a/b");
-    // ANDROID-BEGIN: http://b/29983827
-    // assertEquals(HttpUrl.parse("http://host2/"), base.resolve("//host2"));
-    assertEquals(HttpUrl.parse("http://host2"), base.resolve("//host2"));
-    // ANDROID-END: http://b/29983827
-    assertEquals(HttpUrl.parse("http://host2"), base.resolve("//host2"));
+    assertEquals(HttpUrl.parse("http://host2/"), base.resolve("//host2"));
     assertEquals(HttpUrl.parse("http://host/path"), base.resolve("/path"));
     assertEquals(HttpUrl.parse("http://host/a/path"), base.resolve("path"));
     assertEquals(HttpUrl.parse("http://host/a/b?query"), base.resolve("?query"));
@@ -123,98 +118,6 @@ public final class HttpUrlTest {
     assertEquals(HttpUrl.parse("http://host/a/b"), base.resolve(""));
     assertEquals(HttpUrl.parse("http://host/path"), base.resolve("\\path"));
   }
-
-  // ANDROID-BEGIN: http://b/29983827
-  @Test public void encodedPath_pathVariations() throws Exception {
-    assertEquals("", HttpUrl.parse("http://example.com").encodedPath());
-    assertEquals("", HttpUrl.parse("http://example.com#fragment").encodedPath());
-    assertEquals("", HttpUrl.parse("http://example.com?arg=value").encodedPath());
-    assertEquals("/", HttpUrl.parse("http://example.com/").encodedPath());
-    assertEquals("/", HttpUrl.parse("http://example.com/#fragment").encodedPath());
-    assertEquals("/", HttpUrl.parse("http://example.com/?arg=value").encodedPath());
-    assertEquals("/foo", HttpUrl.parse("http://example.com/foo").encodedPath());
-    assertEquals("/foo/", HttpUrl.parse("http://example.com/foo/").encodedPath());
-  }
-
-  @Test public void newBuilder_pathVariations() throws Exception {
-    assertNewBuilderRoundtrip("http://example.com");
-    assertNewBuilderRoundtrip("http://example.com/");
-    assertNewBuilderRoundtrip("http://example.com/foo");
-    assertNewBuilderRoundtrip("http://example.com/foo/");
-  }
-
-  private void assertNewBuilderRoundtrip(String urlString) {
-    HttpUrl url = HttpUrl.parse(urlString);
-    assertEquals(url, url.newBuilder().build());
-  }
-
-  @Test public void equals_emptyPathNotSameAsSlash() throws Exception {
-    assertFalse(HttpUrl.parse("http://example.com").equals(HttpUrl.parse("http://example.com/")));
-  }
-
-  @Test public void parse_pathVariations() throws Exception {
-    parseThenAssertToStringEquals("http://example.com");
-    parseThenAssertToStringEquals("https://example.com");
-    parseThenAssertToStringEquals("http://example.com?value=42");
-    parseThenAssertToStringEquals("http://example.com:3434");
-    parseThenAssertToStringEquals("http://example.com#hello");
-
-    parseThenAssertToStringEquals("http://example.com/");
-    parseThenAssertToStringEquals("https://example.com/");
-    parseThenAssertToStringEquals("http://example.com/foo/bar");
-    parseThenAssertToStringEquals("http://example.com/foo/bar/");
-    parseThenAssertToStringEquals("http://example.com/foo/bar?value=100");
-    parseThenAssertToStringEquals("http://example.com/?value=200");
-
-    {
-      HttpUrl httpUrl = HttpUrl.parse("http://example.com/foo/..");
-      assertEquals("http://example.com/", httpUrl.toString());
-    }
-
-    {
-      HttpUrl httpUrl = HttpUrl.parse("http://example.com/..");
-      assertEquals("http://example.com/", httpUrl.toString());
-    }
-  }
-
-  private static void parseThenAssertToStringEquals(String url) {
-    HttpUrl httpUrl = HttpUrl.parse(url);
-    assertEquals(url, httpUrl.toString());
-  }
-
-  @Test public void resolve_pathVariations() throws Exception {
-    HttpUrl baseWithoutSlash = HttpUrl.parse("http://example.com");
-    assertResolveResult("http://example.com#section", baseWithoutSlash, "#section");
-    assertResolveResult("http://example.com?attitude=friendly", baseWithoutSlash,
-            "?attitude=friendly");
-    assertResolveResult("http://example.com", baseWithoutSlash, "");
-    assertResolveResult("http://example.com/", baseWithoutSlash, "/");
-    assertResolveResult("http://example.com/foo", baseWithoutSlash, "/foo");
-    assertResolveResult("http://example.com/foo", baseWithoutSlash, "foo");
-
-    assertResolveResult("http://other.com", baseWithoutSlash, "http://other.com");
-    assertResolveResult("http://other.com/", baseWithoutSlash, "http://other.com/");
-    assertResolveResult("http://other.com/foo", baseWithoutSlash, "http://other.com/foo");
-
-    HttpUrl baseWithSlash = HttpUrl.parse("http://example.com/");
-    assertResolveResult("http://example.com/#section", baseWithSlash, "#section");
-    assertResolveResult("http://example.com/?attitude=friendly", baseWithSlash,
-            "?attitude=friendly");
-    assertResolveResult("http://example.com/", baseWithSlash, "");
-    assertResolveResult("http://example.com/", baseWithSlash, "/");
-    assertResolveResult("http://example.com/foo", baseWithSlash, "/foo");
-    assertResolveResult("http://example.com/foo", baseWithSlash, "foo");
-
-    assertResolveResult("http://other.com", baseWithSlash, "http://other.com");
-    assertResolveResult("http://other.com/", baseWithSlash, "http://other.com/");
-    assertResolveResult("http://other.com/foo", baseWithSlash, "http://other.com/foo");
-  }
-
-  private void assertResolveResult(String expected, HttpUrl base, String link) {
-    assertEquals(HttpUrl.parse(expected), base.resolve(link));
-    assertEquals(expected, base.resolve(link).toString());
-  }
-  // ANDROID-END: http://b/29983827
 
   @Test public void resolveUnsupportedScheme() throws Exception {
     HttpUrl base = HttpUrl.parse("http://a/");
@@ -1038,12 +941,8 @@ public final class HttpUrlTest {
         .removePathSegment(0)
         .removePathSegment(0)
         .build();
-    // ANDROID-BEGIN: http://b/29983827 Behavior changed. Test name is now incorrect.
-    // assertEquals(Arrays.asList(""), url.pathSegments());
-    // assertEquals("/", url.encodedPath());
-    assertEquals(Collections.emptyList(), url.pathSegments());
-    assertEquals("http://host", url.toString());
-    // ANDROID-END: http://b/29983827
+    assertEquals(Arrays.asList(""), url.pathSegments());
+    assertEquals("/", url.encodedPath());
   }
 
   @Test public void removePathSegmentOutOfBounds() throws Exception {
