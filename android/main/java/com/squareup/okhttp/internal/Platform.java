@@ -28,7 +28,6 @@ import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
@@ -87,10 +86,6 @@ public class Platform {
     /** setAlpnSelectedProtocol(byte[]) */
     private static final OptionalMethod<Socket> SET_ALPN_PROTOCOLS =
             new OptionalMethod<Socket>(null, "setAlpnProtocols", byte[].class );
-    /** setEndpointIdentificationAlgorithm(String) */
-    private static final OptionalMethod<SSLParameters> SET_ENDPOINT_IDENTIFICATION_ALGORITHM =
-            new OptionalMethod<SSLParameters>(null, "setEndpointIdentificationAlgorithm",
-                    String.class);
 
     public void logW(String warning) {
         System.logW(warning);
@@ -106,14 +101,10 @@ public class Platform {
 
     public void configureTlsExtensions(
             SSLSocket sslSocket, String hostname, List<Protocol> protocols) {
-        // Enable SNI, session tickets, and endpoint identification algorithm.
+        // Enable SNI and session tickets.
         if (hostname != null) {
             SET_USE_SESSION_TICKETS.invokeOptionalWithoutCheckedException(sslSocket, true);
             SET_HOSTNAME.invokeOptionalWithoutCheckedException(sslSocket, hostname);
-
-            // Set endpoint hostname identification algorithm.
-            SET_ENDPOINT_IDENTIFICATION_ALGORITHM.invokeWithoutCheckedException(
-                    sslSocket.getSSLParameters(), "HTTPS");
         }
 
         // Enable ALPN.
