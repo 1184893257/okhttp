@@ -227,12 +227,12 @@ public final class ConnectionSpecTest {
 
     SSLSocket sslSocket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
     sslSocket.setEnabledProtocols(new String[] {
-        TlsVersion.SSL_3_0.javaName(),
+        TlsVersion.TLS_1_0.javaName(),
         TlsVersion.TLS_1_1.javaName()
     });
 
     tlsSpec.apply(sslSocket, false);
-    assertEquals(Arrays.asList(TlsVersion.SSL_3_0.javaName(), TlsVersion.TLS_1_1.javaName()),
+    assertEquals(Arrays.asList(TlsVersion.TLS_1_0.javaName(), TlsVersion.TLS_1_1.javaName()),
         Arrays.asList(sslSocket.getEnabledProtocols()));
   }
 
