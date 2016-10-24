@@ -519,7 +519,7 @@ public final class HttpEngine {
     Request.Builder result = request.newBuilder();
 
     if (request.header("Host") == null) {
-      result.header("Host", Util.hostHeader(request.httpUrl()));
+      result.header("Host", Util.hostHeader(request.httpUrl(), false));
     }
 
     if (request.header("Connection") == null) {
