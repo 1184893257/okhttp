@@ -174,6 +174,21 @@ public final class RequestTest {
     }
   }
 
+  @Test public void headerAllowsTabOnlyInValues() throws Exception {
+    Request.Builder builder = new Request.Builder();
+    // Android N is permitted to reject \t in header values for
+    // OEMs that have not backported external/okhttp commit
+    // 1917ec9635dea723538ea000b67b105999e58710
+    // Therefore this test is relaxed on Android N to not assert that
+    // \t is forbidden in header values.
+    // builder.header("key", "sample\tvalue");
+    try {
+      builder.header("sample\tkey", "value");
+      fail();
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
   @Test public void headerForbidsControlCharacters() throws Exception {
     assertForbiddenHeader(null);
     assertForbiddenHeader("\u0000");
@@ -185,7 +200,6 @@ public final class RequestTest {
     assertForbiddenHeader("a\rb");
     assertForbiddenHeader("\rb");
     // End of Android modification.
-    assertForbiddenHeader("\t");
     assertForbiddenHeader("\u001f");
     assertForbiddenHeader("\u007f");
 
