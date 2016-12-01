@@ -67,7 +67,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-tests-nojarjar
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_test_src_files)
-LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp-nojarjar junit4-target bouncycastle-nojarjar conscrypt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp-nojarjar junit bouncycastle-nojarjar conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
