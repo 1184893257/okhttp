@@ -314,6 +314,10 @@ public final class StreamAllocation {
   }
 
   public boolean recover(RouteException e) {
+    // Android-changed: Canceled StreamAllocations can never recover http://b/33763156
+    if (canceled) {
+      return false;
+    }
     if (connection != null) {
       connectionFailed(e.getLastConnectException());
     }
