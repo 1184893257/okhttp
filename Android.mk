@@ -52,6 +52,20 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_JAVA_LIBRARY)
 
+# A guaranteed unstripped version of okhttp.
+# The build system may or may not strip the okhttp jar, but this one will
+# not be stripped. See b/24535627.
+include $(CLEAR_VARS)
+LOCAL_MODULE := okhttp-testdex
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := $(okhttp_system_src_files)
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
+LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+include $(BUILD_JAVA_LIBRARY)
+
 # non-jarjar'd version of okhttp to compile the tests against
 include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-nojarjar
